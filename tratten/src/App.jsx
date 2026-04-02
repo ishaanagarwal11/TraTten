@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "./firebase";
 
 // ==========================================
@@ -24,14 +24,12 @@ function Login({ onLogin }) {
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
-        // User exists -> Check PIN
         if (userSnap.data().pin === pin) {
           onLogin(safeEmail);
         } else {
           setError("Incorrect PIN. Try again.");
         }
       } else {
-        // New User -> Auto-register in Firebase
         await setDoc(userRef, { pin: pin });
         onLogin(safeEmail);
       }
@@ -87,7 +85,7 @@ function Login({ onLogin }) {
 }
 
 // ==========================================
-// 2. YOUR CALENDAR CODE (NOW WITH FIREBASE)
+// 2. MAIN CALENDAR WITH STATS & FIREBASE
 // ==========================================
 const TRAIL_ACTIVATE_MS = 120;
 const TRAIL_CLEAR_MS = 1200;
@@ -145,16 +143,12 @@ function QuarterlyCalendar({ userEmail }) {
   const timeoutRefs = useRef([]);
   const months = getQuarterMonths();
 
-  // Load data from Firebase on start
   useEffect(() => {
     async function fetchCalendarData() {
       if (!userEmail) return;
       const calendarRef = doc(db, "calendars", userEmail);
       const docSnap = await getDoc(calendarRef);
-      
-      if (docSnap.exists()) {
-        setData(docSnap.data());
-      }
+      if (docSnap.exists()) { setData(docSnap.data()); }
       setIsLoadingData(false);
     }
     fetchCalendarData();
@@ -197,17 +191,26 @@ function QuarterlyCalendar({ userEmail }) {
   };
 
   const handleSelect = async (dateKey, type) => {
-    // 1. Update UI instantly
     setData((prev) => ({ ...prev, [dateKey]: type }));
     setSelectedDate(null);
-
-    // 2. Save to Firebase in the background
     try {
       const calendarRef = doc(db, "calendars", userEmail);
       await setDoc(calendarRef, { [dateKey]: type }, { merge: true });
-    } catch (err) {
-      console.error("Failed to save to cloud", err);
-    }
+    } catch (err) { console.error("Failed to save to cloud", err); }
+  };
+
+  // NEW DELETE FUNCTION
+  const handleDelete = async (dateKey) => {
+    setData((prev) => {
+      const newData = { ...prev };
+      delete newData[dateKey];
+      return newData;
+    });
+    setSelectedDate(null);
+    try {
+      const calendarRef = doc(db, "calendars", userEmail);
+      await updateDoc(calendarRef, { [dateKey]: deleteField() });
+    } catch (err) { console.error("Failed to delete from cloud", err); }
   };
 
   const getColor = (key) => {
@@ -230,6 +233,55 @@ function QuarterlyCalendar({ userEmail }) {
     return dayNum === 0 || dayNum === 6;
   };
 
+  const getStats = () => {
+    let totalMarkedOffice = 0;
+    let totalMarkedHome = 0;
+    let totalWeekdaysInQuarter = 0;
+    const monthlyStats = [];
+
+    months.forEach((monthObj) => {
+      let mOffice = 0;
+      let mMarked = 0;
+      const monthIdx = monthObj.getMonth();
+      const year = monthObj.getFullYear();
+      
+      const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayOfWeek = new Date(year, monthIdx, d).getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) { totalWeekdaysInQuarter++; }
+      }
+
+      Object.keys(data).forEach((key) => {
+        if (key.startsWith(`${monthIdx}-`)) {
+          mMarked++;
+          if (data[key] === "office") { mOffice++; totalMarkedOffice++; } 
+          else { totalMarkedHome++; }
+        }
+      });
+
+      if (monthIdx <= today.getMonth() || year > today.getFullYear()) {
+        if (mMarked > 0) {
+          monthlyStats.push({
+            name: monthObj.toLocaleString("default", { month: "short" }),
+            percent: Math.round((mOffice / mMarked) * 100),
+          });
+        }
+      }
+    });
+
+    const totalAllowedWFH = Math.floor(totalWeekdaysInQuarter * 0.34);
+    const remainingWFH = Math.max(0, totalAllowedWFH - totalMarkedHome);
+    const qDays = months.reduce((acc, m) => acc + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate(), 0);
+    const startOfQ = months[0];
+    const diffTime = Math.max(0, today - startOfQ);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const qPercent = Math.min(100, Math.round((diffDays / qDays) * 100));
+
+    return { monthlyStats, remainingWFH, qPercent };
+  };
+
+  const stats = getStats();
+
   const getRowOverlay = (week, monthObj, rowIdx) => {
     let office = 0;
     let home = 0;
@@ -239,17 +291,14 @@ function QuarterlyCalendar({ userEmail }) {
 
     week.forEach((day, i) => {
       let dateObj = null;
-      if (day) {
-        dateObj = new Date(year, month, day);
-      } else if (rowIdx === 0) {
+      if (day) { dateObj = new Date(year, month, day); } 
+      else if (rowIdx === 0) {
         const prevDay = i - firstDay + 1;
         dateObj = new Date(year, month, prevDay);
-      } else {
-        return;
-      }
+      } else { return; }
+      
       const dayNum = dateObj.getDay();
       if (dayNum === 0 || dayNum === 6) return; 
-
       const key = `${dateObj.getMonth()}-${dateObj.getDate()}`;
       if (data[key] === "office") office++;
       if (data[key] === "home") home++;
@@ -323,20 +372,29 @@ function QuarterlyCalendar({ userEmail }) {
 
                       {isOpen && (
                         <div
-                          className="absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-10 gap-2 rounded-xl border bg-white/80 px-3 py-2 text-xs shadow-2xl backdrop-blur-md"
+                          className="absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-12 gap-2 rounded-xl border bg-white/90 px-3 py-2 text-xs shadow-2xl backdrop-blur-md items-center"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             onClick={() => handleSelect(key, "office")}
-                            className="cursor-pointer rounded bg-blue-500 px-3 py-1 text-white shadow-md hover:scale-105 transition"
+                            className="cursor-pointer rounded-lg bg-blue-500 px-3 py-1.5 text-white font-medium shadow-md hover:scale-105 transition"
                           >
                             Office
                           </button>
                           <button
                             onClick={() => handleSelect(key, "home")}
-                            className="cursor-pointer rounded bg-orange-400 px-3 py-1 text-white shadow-md hover:scale-105 transition"
+                            className="cursor-pointer rounded-lg bg-orange-400 px-3 py-1.5 text-white font-medium shadow-md hover:scale-105 transition"
                           >
                             Home
+                          </button>
+                          
+                          {/* DELETE BUTTON */}
+                          <button
+                            onClick={() => handleDelete(key)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-red-200 bg-white text-red-500 font-bold shadow-sm hover:bg-red-50 transition"
+                            title="Delete entry"
+                          >
+                            D
                           </button>
                         </div>
                       )}
@@ -352,14 +410,40 @@ function QuarterlyCalendar({ userEmail }) {
   };
 
   if (isLoadingData) {
-    return <div className="flex h-64 items-center justify-center text-gray-500 font-medium">Syncing with cloud...</div>;
+    return <div className="flex h-64 items-center justify-center text-gray-500 font-medium italic">Syncing cloud...</div>;
   }
 
   return (
     <>
       <style>{styles}</style>
       <div className="max-h-screen overflow-y-auto bg-white p-4" onClick={() => setSelectedDate(null)}>
-        <div className="flex flex-col gap-4">
+        
+        {/* STATS DASHBOARD */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl bg-blue-50 p-4 border border-blue-100 shadow-sm">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600">WFH Remaining</div>
+            <div className="text-2xl font-black text-blue-900">{stats.remainingWFH} <span className="text-sm font-medium">days</span></div>
+            <div className="text-[9px] text-blue-400 mt-1">To maintain 66% Office</div>
+          </div>
+
+          <div className="rounded-2xl bg-green-50 p-4 border border-green-100 shadow-sm">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-green-600">Q-Progress</div>
+            <div className="text-2xl font-black text-green-900">{stats.qPercent}%</div>
+            <div className="h-1.5 w-full bg-green-200 rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-green-600" style={{ width: `${stats.qPercent}%` }}></div>
+            </div>
+          </div>
+
+          {stats.monthlyStats.map((m) => (
+            <div key={m.name} className="rounded-2xl bg-gray-50 p-4 border border-gray-100 shadow-sm">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Office: {m.name}</div>
+              <div className="text-2xl font-black text-gray-900">{m.percent}%</div>
+              <div className="text-[9px] text-gray-400 mt-1">Based on marked days</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-4 pb-20">
           {months.map((m, idx) => (
             <div key={`${m.getFullYear()}-${m.getMonth()}-${idx}`}>{renderMonth(m)}</div>
           ))}
@@ -379,9 +463,7 @@ export default function App() {
 
   useEffect(() => {
     const savedSession = localStorage.getItem("tratten_active_session");
-    if (savedSession) {
-      setUserEmail(savedSession);
-    }
+    if (savedSession) { setUserEmail(savedSession); }
   }, []);
 
   const handleLogin = (email) => {
@@ -397,30 +479,23 @@ export default function App() {
   const handleChangePin = async (e) => {
     e.preventDefault();
     if (newPin.length !== 4) return alert("PIN must be 4 digits");
-    
     try {
       const userRef = doc(db, "users", userEmail);
       await updateDoc(userRef, { pin: newPin });
       alert("PIN updated successfully!");
       setIsChangingPin(false);
       setNewPin("");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update PIN");
-    }
+    } catch (err) { alert("Failed to update PIN"); }
   };
 
-  if (!userEmail) {
-    return <Login onLogin={handleLogin} />;
-  }
+  if (!userEmail) { return <Login onLogin={handleLogin} />; }
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
-      {/* Top Navigation Bar */}
       <div className="flex items-center justify-between bg-white p-4 shadow-sm border-b z-40 relative">
         <span className="font-semibold text-gray-700 truncate max-w-[50%]">
-  {userEmail.split('@')[0]}
-</span>
+          {userEmail.split('@')[0]}
+        </span>
         <div className="flex gap-2">
           <button 
             onClick={() => setIsChangingPin(true)}
@@ -437,11 +512,10 @@ export default function App() {
         </div>
       </div>
 
-      {/* Change PIN Modal Popup */}
       {isChangingPin && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold mb-4">Set New PIN</h2>
+            <h2 className="text-lg font-bold mb-4 text-gray-800">Set New PIN</h2>
             <form onSubmit={handleChangePin} className="space-y-4">
               <input 
                 type="password" 
@@ -452,29 +526,14 @@ export default function App() {
                 onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
               />
               <div className="flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setIsChangingPin(false);
-                    setNewPin("");
-                  }}
-                  className="flex-1 rounded-lg bg-gray-100 p-3 font-semibold text-gray-600 hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 rounded-lg bg-blue-600 p-3 font-semibold text-white hover:bg-blue-700"
-                >
-                  Save
-                </button>
+                <button type="button" onClick={() => { setIsChangingPin(false); setNewPin(""); }} className="flex-1 rounded-lg bg-gray-100 p-3 font-semibold text-gray-600">Cancel</button>
+                <button type="submit" className="flex-1 rounded-lg bg-blue-600 p-3 font-semibold text-white">Save</button>
               </div>
             </form>
           </div>
         </div>
       )}
       
-      {/* Main Calendar Content */}
       <div className="flex-1 overflow-hidden relative z-0">
          <QuarterlyCalendar userEmail={userEmail} />
       </div>
