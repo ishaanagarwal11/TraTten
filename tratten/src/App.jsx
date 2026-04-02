@@ -42,27 +42,27 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-gray-100">
-        <h1 className="mb-6 text-2xl font-bold text-gray-800">Welcome to TraTten</h1>
-        <form onSubmit={handleAuth} className="space-y-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
+        <h1 className="mb-8 text-3xl font-extrabold tracking-tight text-gray-900">TraTten.</h1>
+        <form onSubmit={handleAuth} className="space-y-5">
           <div>
-            <label className="block text-xs font-semibold uppercase text-gray-400">Email</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Email</label>
             <input 
               type="email" 
               required
-              className="mt-1 w-full rounded-xl border border-gray-200 p-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-4 outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 transition"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase text-gray-400">4-Digit PIN</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">4-Digit PIN</label>
             <input 
               type="password" 
               maxLength="4"
               required
-              className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-center text-2xl tracking-widest outline-none focus:ring-2 focus:ring-orange-400"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-4 text-center text-3xl tracking-[0.5em] outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 transition font-mono"
               value={pin}
               onChange={(e) => {
                 setError(""); 
@@ -74,9 +74,9 @@ function Login({ onLogin }) {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full rounded-xl bg-gray-900 p-4 font-bold text-white transition hover:bg-black active:scale-95 disabled:opacity-50"
+            className="w-full rounded-xl bg-gray-900 p-4 mt-2 font-bold text-white transition hover:bg-black active:scale-95 disabled:opacity-50 shadow-lg shadow-gray-900/20"
           >
-            {loading ? "Checking..." : "Enter Dashboard"}
+            {loading ? "Verifying..." : "Enter"}
           </button>
         </form>
       </div>
@@ -118,19 +118,13 @@ const getRows = (days) => {
 function QuarterlyCalendar({ userEmail }) {
   const styles = `
     @keyframes glowPulse {
-      0% { box-shadow: 0 0 0 rgba(34,197,94,0.2); }
-      50% { box-shadow: 0 0 18px rgba(34,197,94,0.5); }
-      100% { box-shadow: 0 0 0 rgba(34,197,94,0.2); }
-    }
-    @keyframes hoverPulse {
-      0% { box-shadow: 0 0 0 rgba(59,130,246,0.15); }
-      50% { box-shadow: 0 0 10px rgba(59,130,246,0.35); }
-      100% { box-shadow: 0 0 0 rgba(59,130,246,0.15); }
+      0% { box-shadow: 0 0 0 rgba(156,163,175,0.1); }
+      50% { box-shadow: 0 0 20px rgba(156,163,175,0.4); }
+      100% { box-shadow: 0 0 0 rgba(156,163,175,0.1); }
     }
     .today-glow { animation: glowPulse 3s infinite ease-in-out; }
-    .hover-breathe:hover { animation: hoverPulse 2s infinite ease-in-out; }
-    .trail-active { background: rgba(37,99,235,0.35); }
-    .trail-fade { background: rgba(37,99,235,0); transition: background 1.2s ease-out; }
+    .trail-active { background: rgba(229,231,235,0.8); }
+    .trail-fade { background: rgba(229,231,235,0); transition: background 1.2s ease-out; }
   `;
 
   const [selectedDate, setSelectedDate] = useState(null);
@@ -199,7 +193,6 @@ function QuarterlyCalendar({ userEmail }) {
     } catch (err) { console.error("Failed to save to cloud", err); }
   };
 
-  // NEW DELETE FUNCTION
   const handleDelete = async (dateKey) => {
     setData((prev) => {
       const newData = { ...prev };
@@ -214,9 +207,9 @@ function QuarterlyCalendar({ userEmail }) {
   };
 
   const getColor = (key) => {
-    if (data[key] === "office") return "bg-blue-100";
-    if (data[key] === "home") return "bg-orange-100";
-    return "bg-white";
+    if (data[key] === "office") return "bg-gray-200 text-gray-900";
+    if (data[key] === "home") return "bg-gray-700 text-white";
+    return "bg-transparent";
   };
 
   const isToday = (monthObj, day) => {
@@ -252,20 +245,20 @@ function QuarterlyCalendar({ userEmail }) {
       }
 
       Object.keys(data).forEach((key) => {
-        if (key.startsWith(`${monthIdx}-`)) {
+        // MATCHING THE NEW YYYY-MM-DD KEY FORMAT
+        if (key.startsWith(`${year}-${monthIdx}-`)) {
           mMarked++;
           if (data[key] === "office") { mOffice++; totalMarkedOffice++; } 
           else { totalMarkedHome++; }
         }
       });
 
-      if (monthIdx <= today.getMonth() || year > today.getFullYear()) {
-        if (mMarked > 0) {
-          monthlyStats.push({
-            name: monthObj.toLocaleString("default", { month: "short" }),
-            percent: Math.round((mOffice / mMarked) * 100),
-          });
-        }
+      // Show stats if the user has marked ANY data for this month
+      if (mMarked > 0) {
+        monthlyStats.push({
+          name: monthObj.toLocaleString("default", { month: "short" }),
+          percent: Math.round((mOffice / mMarked) * 100),
+        });
       }
     });
 
@@ -299,7 +292,9 @@ function QuarterlyCalendar({ userEmail }) {
       
       const dayNum = dateObj.getDay();
       if (dayNum === 0 || dayNum === 6) return; 
-      const key = `${dateObj.getMonth()}-${dateObj.getDate()}`;
+      
+      // NEW YYYY-MM-DD FORMAT
+      const key = `${dateObj.getFullYear()}-${dateObj.getMonth()}-${dateObj.getDate()}`;
       if (data[key] === "office") office++;
       if (data[key] === "home") home++;
     });
@@ -308,7 +303,7 @@ function QuarterlyCalendar({ userEmail }) {
       const isOffice = office >= home;
       return {
         text: `${Math.max(office, home)}/5 ${isOffice ? "O" : "H"}`,
-        color: isOffice ? "bg-blue-100" : "bg-orange-100",
+        color: isOffice ? "bg-gray-200 text-gray-900 shadow-md" : "bg-gray-700 text-white shadow-md",
       };
     }
     return null;
@@ -317,34 +312,38 @@ function QuarterlyCalendar({ userEmail }) {
   const renderMonth = (monthObj) => {
     const days = generateDays(monthObj);
     const rows = getRows(days);
+    const year = monthObj.getFullYear();
 
     return (
-      <div className="p-2">
-        <div className="mb-2 text-sm font-medium text-gray-700">
+      <div className="py-4">
+        <div className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-400">
           {monthObj.toLocaleString("default", { month: "long" })}
         </div>
-        <div className="mb-1 grid grid-cols-7 text-center text-xs text-gray-400">
+        <div className="mb-2 grid grid-cols-7 text-center text-[10px] font-semibold uppercase text-gray-300">
           {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
             <div key={`${d}-${i}`}>{d}</div>
           ))}
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1 sm:gap-2">
           {rows.map((week, rowIdx) => {
             const overlay = getRowOverlay(week, monthObj, rowIdx);
             return (
-              <div key={`${monthObj.getMonth()}-${rowIdx}`} className="relative grid grid-cols-7 gap-2 group">
+              <div key={`${monthObj.getMonth()}-${rowIdx}`} className="relative grid grid-cols-7 gap-1 sm:gap-2 group">
                 {overlay && (
-                  <div className={`absolute inset-0 z-10 flex items-center justify-center rounded-xl text-black font-medium ${overlay.color} opacity-100 group-hover:opacity-0 transition pointer-events-none`}>
+                  <div className={`absolute inset-0 z-10 flex items-center justify-center rounded-2xl text-xs font-bold tracking-widest ${overlay.color} opacity-100 group-hover:opacity-0 transition duration-300 pointer-events-none`}>
                     {overlay.text}
                   </div>
                 )}
                 {week.map((day, idx) => {
                   if (!day) return <div key={`blank-${idx}`} />;
-                  const key = `${monthObj.getMonth()}-${day}`;
+                  
+                  // NEW YYYY-MM-DD FORMAT
+                  const key = `${year}-${monthObj.getMonth()}-${day}`;
                   const todayCheck = isToday(monthObj, day);
                   const isOpen = selectedDate === key;
                   const weekend = isWeekend(monthObj, day);
                   const trailState = trailMap[key];
+                  const hasData = !!data[key];
 
                   return (
                     <div key={day} className="relative" ref={todayCheck ? todayRef : null}>
@@ -355,43 +354,45 @@ function QuarterlyCalendar({ userEmail }) {
                           setSelectedDate(isOpen ? null : key);
                         }}
                         onMouseEnter={() => triggerTrail(key)}
-                        className={`hover-breathe relative flex h-14 flex-col items-center justify-center rounded-2xl border text-sm transition-all duration-200 ease-out active:scale-95
-                          ${!data[key] && trailState === "active" ? "trail-active" : ""}
-                          ${!data[key] && trailState === "fade" ? "trail-fade" : ""}
+                        className={`relative flex h-12 sm:h-14 flex-col items-center justify-center rounded-2xl transition-all duration-200 ease-out active:scale-90
+                          ${!hasData && trailState === "active" ? "trail-active" : ""}
+                          ${!hasData && trailState === "fade" ? "trail-fade" : ""}
                           ${getColor(key)}
-                          ${todayCheck ? "border-green-600 shadow-lg today-glow" : "border-gray-200"}
-                          ${isOpen ? "ring-2 ring-yellow-500 bg-yellow-50 shadow-xl" : ""}
-                          ${weekend ? "cursor-not-allowed opacity-30" : "cursor-pointer"}
+                          ${todayCheck ? "ring-1 ring-gray-400/50 today-glow font-bold" : ""}
+                          ${isOpen ? "ring-2 ring-gray-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-10 scale-105" : ""}
+                          ${weekend ? "cursor-not-allowed opacity-20 text-gray-400" : "cursor-pointer"}
+                          ${!hasData && !isOpen && !weekend ? "hover:bg-gray-100/50" : ""}
                         `}
                       >
                         {todayCheck && (
-                          <div className="absolute top-1 text-[6px] uppercase tracking-wide text-green-700">TODAY</div>
+                          <div className="absolute top-1 text-[5px] uppercase tracking-widest text-gray-900 font-bold">TODAY</div>
                         )}
-                        <div className={`text-lg ${todayCheck ? "text-green-700" : ""}`}>{day}</div>
+                        <div className={`text-sm sm:text-base font-medium ${todayCheck ? "text-gray-900" : (hasData ? "" : "text-gray-500")}`}>
+                          {day}
+                        </div>
                       </div>
 
                       {isOpen && (
                         <div
-                          className="absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-12 gap-2 rounded-xl border bg-white/90 px-3 py-2 text-xs shadow-2xl backdrop-blur-md items-center"
+                          className="absolute left-1/2 top-0 z-50 flex -translate-x-1/2 -translate-y-12 gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-[0_20px_40px_rgb(0,0,0,0.1)] backdrop-blur-xl items-center"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             onClick={() => handleSelect(key, "office")}
-                            className="cursor-pointer rounded-lg bg-blue-500 px-3 py-1.5 text-white font-medium shadow-md hover:scale-105 transition"
+                            className="cursor-pointer rounded-xl bg-gray-200 px-4 py-2 text-gray-900 font-semibold shadow-sm hover:scale-105 hover:bg-gray-300 transition"
                           >
                             Office
                           </button>
                           <button
                             onClick={() => handleSelect(key, "home")}
-                            className="cursor-pointer rounded-lg bg-orange-400 px-3 py-1.5 text-white font-medium shadow-md hover:scale-105 transition"
+                            className="cursor-pointer rounded-xl bg-gray-700 px-4 py-2 text-white font-semibold shadow-sm hover:scale-105 hover:bg-gray-800 transition"
                           >
                             Home
                           </button>
                           
-                          {/* DELETE BUTTON */}
                           <button
                             onClick={() => handleDelete(key)}
-                            className="flex h-7 w-7 items-center justify-center rounded-full border border-red-200 bg-white text-red-500 font-bold shadow-sm hover:bg-red-50 transition"
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-red-500 font-bold hover:bg-gray-50 transition shrink-0"
                             title="Delete entry"
                           >
                             D
@@ -410,43 +411,47 @@ function QuarterlyCalendar({ userEmail }) {
   };
 
   if (isLoadingData) {
-    return <div className="flex h-64 items-center justify-center text-gray-500 font-medium italic">Syncing cloud...</div>;
+    return <div className="flex h-64 items-center justify-center text-gray-400 font-medium tracking-widest uppercase text-xs">Syncing...</div>;
   }
 
   return (
     <>
       <style>{styles}</style>
-      <div className="max-h-screen overflow-y-auto bg-white p-4" onClick={() => setSelectedDate(null)}>
+      <div className="max-h-screen overflow-y-auto bg-[#F9FAFB] p-4 sm:p-8" onClick={() => setSelectedDate(null)}>
         
-        {/* STATS DASHBOARD */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-2xl bg-blue-50 p-4 border border-blue-100 shadow-sm">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600">WFH Remaining</div>
-            <div className="text-2xl font-black text-blue-900">{stats.remainingWFH} <span className="text-sm font-medium">days</span></div>
-            <div className="text-[9px] text-blue-400 mt-1">To maintain 66% Office</div>
+        <div className="max-w-3xl mx-auto w-full">
+          {/* STATS DASHBOARD - Top Grid */}
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-3xl bg-white p-5 border border-gray-100 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+              <div className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-1">WFH Remaining</div>
+              <div className="text-3xl font-black text-gray-800 tracking-tight">{stats.remainingWFH} <span className="text-xs font-semibold text-gray-400 tracking-normal">days</span></div>
+            </div>
+
+            {stats.monthlyStats.map((m) => (
+              <div key={m.name} className="rounded-3xl bg-white p-5 border border-gray-100 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+                <div className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-1">Office: {m.name}</div>
+                <div className="text-3xl font-black text-gray-800 tracking-tight">{m.percent}%</div>
+              </div>
+            ))}
           </div>
 
-          <div className="rounded-2xl bg-green-50 p-4 border border-green-100 shadow-sm">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-green-600">Q-Progress</div>
-            <div className="text-2xl font-black text-green-900">{stats.qPercent}%</div>
-            <div className="h-1.5 w-full bg-green-200 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-green-600" style={{ width: `${stats.qPercent}%` }}></div>
+          {/* Q-PROGRESS BAR - Thin & Long */}
+          <div className="mb-10 rounded-2xl bg-white px-5 py-4 border border-gray-100 shadow-[0_2px_10px_rgb(0,0,0,0.02)] flex items-center gap-4 sm:gap-6">
+            <div className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 whitespace-nowrap">Q-Progress</div>
+            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden flex-1">
+                <div className="h-full bg-gray-800 rounded-full transition-all duration-1000 ease-out" style={{ width: `${stats.qPercent}%` }}></div>
             </div>
+            <div className="text-lg font-black text-gray-800 tracking-tight">{stats.qPercent}%</div>
           </div>
 
-          {stats.monthlyStats.map((m) => (
-            <div key={m.name} className="rounded-2xl bg-gray-50 p-4 border border-gray-100 shadow-sm">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Office: {m.name}</div>
-              <div className="text-2xl font-black text-gray-900">{m.percent}%</div>
-              <div className="text-[9px] text-gray-400 mt-1">Based on marked days</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-4 pb-20">
-          {months.map((m, idx) => (
-            <div key={`${m.getFullYear()}-${m.getMonth()}-${idx}`}>{renderMonth(m)}</div>
-          ))}
+          {/* CALENDAR - Clean & Blended */}
+          <div className="flex flex-col gap-6 pb-20">
+            {months.map((m, idx) => (
+              <div key={`${m.getFullYear()}-${m.getMonth()}-${idx}`} className="p-2 sm:p-4">
+                {renderMonth(m)}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>
@@ -491,21 +496,21 @@ export default function App() {
   if (!userEmail) { return <Login onLogin={handleLogin} />; }
 
   return (
-    <div className="bg-gray-50 min-h-screen flex flex-col">
-      <div className="flex items-center justify-between bg-white p-4 shadow-sm border-b z-40 relative">
-        <span className="font-semibold text-gray-700 truncate max-w-[50%]">
+    <div className="bg-[#F9FAFB] min-h-screen flex flex-col font-sans text-gray-900">
+      <div className="flex items-center justify-between bg-white px-6 py-4 shadow-[0_2px_10px_rgb(0,0,0,0.02)] border-b border-gray-100 z-40 relative">
+        <span className="font-bold text-gray-800 truncate max-w-[50%] tracking-tight">
           {userEmail.split('@')[0]}
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button 
             onClick={() => setIsChangingPin(true)}
-            className="text-sm text-gray-600 hover:text-gray-900 font-medium bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-md transition"
+            className="text-xs text-gray-500 hover:text-gray-900 font-bold tracking-wide uppercase transition"
           >
-            Change PIN
+            Pin
           </button>
           <button 
             onClick={handleLogout}
-            className="text-sm text-red-500 hover:text-red-700 font-medium bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition"
+            className="text-xs text-red-400 hover:text-red-600 font-bold tracking-wide uppercase transition"
           >
             Logout
           </button>
@@ -513,21 +518,21 @@ export default function App() {
       </div>
 
       {isChangingPin && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold mb-4 text-gray-800">Set New PIN</h2>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-gray-900/20 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-[0_20px_40px_rgb(0,0,0,0.1)] border border-gray-100">
+            <h2 className="text-xl font-extrabold mb-6 text-gray-900 tracking-tight">Set New PIN</h2>
             <form onSubmit={handleChangePin} className="space-y-4">
               <input 
                 type="password" 
                 maxLength="4"
-                placeholder="New 4-digit PIN"
-                className="w-full rounded-xl border border-gray-200 p-3 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0000"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-4 text-center text-3xl tracking-[0.5em] outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 transition font-mono"
                 value={newPin}
                 onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
               />
-              <div className="flex gap-2">
-                <button type="button" onClick={() => { setIsChangingPin(false); setNewPin(""); }} className="flex-1 rounded-lg bg-gray-100 p-3 font-semibold text-gray-600">Cancel</button>
-                <button type="submit" className="flex-1 rounded-lg bg-blue-600 p-3 font-semibold text-white">Save</button>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setIsChangingPin(false); setNewPin(""); }} className="flex-1 rounded-xl bg-gray-100 p-4 font-bold text-gray-600 transition hover:bg-gray-200">Cancel</button>
+                <button type="submit" className="flex-1 rounded-xl bg-gray-900 p-4 font-bold text-white transition hover:bg-black shadow-lg shadow-gray-900/20">Save</button>
               </div>
             </form>
           </div>
