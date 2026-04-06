@@ -118,9 +118,9 @@ const getRows = (days) => {
 function QuarterlyCalendar({ userEmail }) {
   const styles = `
     @keyframes glowPulse {
-      0% { box-shadow: 0 0 0 rgba(156,163,175,0.1); }
-      50% { box-shadow: 0 0 20px rgba(156,163,175,0.4); }
-      100% { box-shadow: 0 0 0 rgba(156,163,175,0.1); }
+      0% { box-shadow: 0 0 0 rgba(156,163,175,0.05); }
+      50% { box-shadow: 0 0 20px rgba(156,163,175,0.25); }
+      100% { box-shadow: 0 0 0 rgba(156,163,175,0.05); }
     }
     .today-glow { animation: glowPulse 3s infinite ease-in-out; }
     .trail-active { background: rgba(229,231,235,0.8); }
@@ -131,11 +131,21 @@ function QuarterlyCalendar({ userEmail }) {
   const [data, setData] = useState({});
   const [trailMap, setTrailMap] = useState({});
   const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  // Initialize toggle state from localStorage, default to false (WFH Remaining)
+  const [showOfficeStat, setShowOfficeStat] = useState(() => {
+    return localStorage.getItem("tratten_stat_toggle") === "true";
+  });
 
   const today = new Date();
   const todayRef = useRef(null);
   const timeoutRefs = useRef([]);
   const months = getQuarterMonths();
+
+  // Save toggle preference whenever it changes
+  useEffect(() => {
+    localStorage.setItem("tratten_stat_toggle", showOfficeStat);
+  }, [showOfficeStat]);
 
   useEffect(() => {
     async function fetchCalendarData() {
@@ -245,7 +255,6 @@ function QuarterlyCalendar({ userEmail }) {
       }
 
       Object.keys(data).forEach((key) => {
-        // MATCHING THE NEW YYYY-MM-DD KEY FORMAT
         if (key.startsWith(`${year}-${monthIdx}-`)) {
           mMarked++;
           if (data[key] === "office") { mOffice++; totalMarkedOffice++; } 
@@ -253,7 +262,6 @@ function QuarterlyCalendar({ userEmail }) {
         }
       });
 
-      // Show stats if the user has marked ANY data for this month
       if (mMarked > 0) {
         monthlyStats.push({
           name: monthObj.toLocaleString("default", { month: "short" }),
@@ -262,15 +270,19 @@ function QuarterlyCalendar({ userEmail }) {
       }
     });
 
-    const totalAllowedWFH = Math.floor(totalWeekdaysInQuarter * 0.34);
+    const totalAllowedWFH = Math.floor(totalWeekdaysInQuarter * 0.39);
     const remainingWFH = Math.max(0, totalAllowedWFH - totalMarkedHome);
+    
+    const requiredOffice = Math.ceil(totalWeekdaysInQuarter * 0.61);
+    const toGoOffice = Math.max(0, requiredOffice - totalMarkedOffice);
+
     const qDays = months.reduce((acc, m) => acc + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate(), 0);
     const startOfQ = months[0];
     const diffTime = Math.max(0, today - startOfQ);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const qPercent = Math.min(100, Math.round((diffDays / qDays) * 100));
 
-    return { monthlyStats, remainingWFH, qPercent };
+    return { monthlyStats, remainingWFH, toGoOffice, qPercent };
   };
 
   const stats = getStats();
@@ -293,7 +305,6 @@ function QuarterlyCalendar({ userEmail }) {
       const dayNum = dateObj.getDay();
       if (dayNum === 0 || dayNum === 6) return; 
       
-      // NEW YYYY-MM-DD FORMAT
       const key = `${dateObj.getFullYear()}-${dateObj.getMonth()}-${dateObj.getDate()}`;
       if (data[key] === "office") office++;
       if (data[key] === "home") home++;
@@ -337,7 +348,6 @@ function QuarterlyCalendar({ userEmail }) {
                 {week.map((day, idx) => {
                   if (!day) return <div key={`blank-${idx}`} />;
                   
-                  // NEW YYYY-MM-DD FORMAT
                   const key = `${year}-${monthObj.getMonth()}-${day}`;
                   const todayCheck = isToday(monthObj, day);
                   const isOpen = selectedDate === key;
@@ -358,16 +368,23 @@ function QuarterlyCalendar({ userEmail }) {
                           ${!hasData && trailState === "active" ? "trail-active" : ""}
                           ${!hasData && trailState === "fade" ? "trail-fade" : ""}
                           ${getColor(key)}
-                          ${todayCheck ? "ring-1 ring-gray-400/50 today-glow font-bold" : ""}
-                          ${isOpen ? "ring-2 ring-gray-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-10 scale-105" : ""}
+                          ${todayCheck ? "ring-[3px] ring-white shadow-[0_4px_15px_rgba(0,0,0,0.06)] today-glow font-bold z-10" : ""}
+                          ${isOpen ? "ring-2 ring-gray-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-20 scale-105" : ""}
                           ${weekend ? "cursor-not-allowed opacity-20 text-gray-400" : "cursor-pointer"}
                           ${!hasData && !isOpen && !weekend ? "hover:bg-gray-100/50" : ""}
                         `}
                       >
                         {todayCheck && (
-                          <div className="absolute top-1 text-[5px] uppercase tracking-widest text-gray-900 font-bold">TODAY</div>
+                          <div className="absolute -top-1.5 text-[6px] uppercase tracking-widest text-gray-800 font-bold bg-white border border-white shadow-[0_2px_4px_rgba(0,0,0,0.05)] px-1.5 py-0.5 rounded-full z-10">
+                            TODAY
+                          </div>
                         )}
-                        <div className={`text-sm sm:text-base font-medium ${todayCheck ? "text-gray-900" : (hasData ? "" : "text-gray-500")}`}>
+                        <div 
+                          className={`
+                            ${todayCheck ? "text-[15px] sm:text-[17px] font-black text-gray-900 [text-shadow:0_0_10px_white,0_0_4px_white] scale-110" 
+                            : (hasData ? "text-sm sm:text-base font-medium" : "text-sm sm:text-base font-medium text-gray-500")}
+                          `}
+                        >
                           {day}
                         </div>
                       </div>
@@ -422,11 +439,27 @@ function QuarterlyCalendar({ userEmail }) {
         <div className="max-w-3xl mx-auto w-full">
           {/* STATS DASHBOARD - Top Grid */}
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-3xl bg-white p-5 border border-gray-100 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
-              <div className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-1">WFH Remaining</div>
-              <div className="text-3xl font-black text-gray-800 tracking-tight">{stats.remainingWFH} <span className="text-xs font-semibold text-gray-400 tracking-normal">days</span></div>
+            
+            {/* TOGGLE STAT BOX */}
+            <div className="rounded-3xl bg-white p-5 border border-gray-100 shadow-[0_2px_10px_rgb(0,0,0,0.02)] flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 transition-all">
+                  {showOfficeStat ? "To Go Office" : "WFH Remaining"}
+                </div>
+                {/* iOS Style Slide Switch */}
+                <div
+                  onClick={() => setShowOfficeStat(!showOfficeStat)}
+                  className={`flex h-4 w-7 cursor-pointer items-center rounded-full p-0.5 transition-colors duration-200 ${showOfficeStat ? 'bg-gray-800' : 'bg-gray-200'}`}
+                >
+                  <div className={`h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${showOfficeStat ? 'translate-x-3' : 'translate-x-0'}`} />
+                </div>
+              </div>
+              <div className="text-3xl font-black text-gray-800 tracking-tight mt-1">
+                {showOfficeStat ? stats.toGoOffice : stats.remainingWFH} <span className="text-xs font-semibold text-gray-400 tracking-normal">days</span>
+              </div>
             </div>
 
+            {/* MONTHLY STAT BOXES */}
             {stats.monthlyStats.map((m) => (
               <div key={m.name} className="rounded-3xl bg-white p-5 border border-gray-100 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
                 <div className="text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-1">Office: {m.name}</div>
